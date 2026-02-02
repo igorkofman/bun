@@ -100,6 +100,7 @@ pub fn init(
     sni_hostname: []const u8,
     reject_unauthorized: bool,
 ) !*WebSocketProxyTunnel {
+    log("init: ssl={}, sni_hostname={s}, reject_unauthorized={}", .{ ssl, sni_hostname, reject_unauthorized });
     return bun.new(WebSocketProxyTunnel, .{
         .ref_count = .init(),
         .#upgrade_client = if (comptime ssl) .{ .https = upgrade_client } else .{ .http = upgrade_client },
@@ -110,6 +111,7 @@ pub fn init(
 }
 
 fn deinit(this: *WebSocketProxyTunnel) void {
+    log("deinit: has_wrapper={}, has_hostname={}", .{ this.#wrapper != null, this.#sni_hostname != null });
     if (this.#wrapper) |*wrapper| {
         wrapper.deinit();
         this.#wrapper = null;
@@ -125,6 +127,7 @@ fn deinit(this: *WebSocketProxyTunnel) void {
 /// Start TLS handshake inside the tunnel
 /// The ssl_options should contain all TLS configuration including CA certificates.
 pub fn start(this: *WebSocketProxyTunnel, ssl_options: SSLConfig, initial_data: []const u8) !void {
+    log("start: initial_data_len={d}, reject_unauthorized={}", .{ initial_data.len, this.#reject_unauthorized });
     // Allow handshake to complete so we can access peer certificate for manual
     // hostname verification in onHandshake(). The actual reject_unauthorized
     // check uses this.#reject_unauthorized field.
@@ -305,6 +308,7 @@ pub fn onWritable(this: *WebSocketProxyTunnel) void {
 
 /// Feed encrypted data from the network to the SSL wrapper for decryption
 pub fn receive(this: *WebSocketProxyTunnel, data: []const u8) void {
+    log("receive: {d} bytes of encrypted data", .{data.len});
     this.ref();
     defer this.deref();
 
@@ -315,6 +319,7 @@ pub fn receive(this: *WebSocketProxyTunnel, data: []const u8) void {
 
 /// Write application data through the tunnel (will be encrypted)
 pub fn write(this: *WebSocketProxyTunnel, data: []const u8) !usize {
+    log("write: {d} bytes of application data", .{data.len});
     if (this.#wrapper) |*wrapper| {
         return try wrapper.writeData(data);
     }
@@ -323,6 +328,7 @@ pub fn write(this: *WebSocketProxyTunnel, data: []const u8) !usize {
 
 /// Gracefully shutdown the TLS connection
 pub fn shutdown(this: *WebSocketProxyTunnel) void {
+    log("shutdown", .{});
     if (this.#wrapper) |*wrapper| {
         _ = wrapper.shutdown(true); // Fast shutdown
     }

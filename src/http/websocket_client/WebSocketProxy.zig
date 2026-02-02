@@ -19,6 +19,7 @@ pub fn init(
     target_is_https: bool,
     websocket_request_buf: []u8,
 ) WebSocketProxy {
+    log("init: target_host={s}, target_is_https={}, ws_request_buf_len={d}", .{ target_host, target_is_https, websocket_request_buf.len });
     return .{
         .#target_host = target_host,
         .#target_is_https = target_is_https,
@@ -43,6 +44,7 @@ pub fn getTunnel(self: *const WebSocketProxy) ?*WebSocketProxyTunnel {
 
 /// Set the TLS tunnel
 pub fn setTunnel(self: *WebSocketProxy, new_tunnel: ?*WebSocketProxyTunnel) void {
+    log("setTunnel: tunnel={*}", .{@as(?*const anyopaque, if (new_tunnel) |t| @ptrCast(t) else null)});
     self.#tunnel = new_tunnel;
 }
 
@@ -56,6 +58,7 @@ pub fn takeWebsocketRequestBuf(self: *WebSocketProxy) []u8 {
 
 /// Clean up all allocated resources
 pub fn deinit(self: *WebSocketProxy) void {
+    log("deinit: target_host={s}, has_tunnel={}", .{ self.#target_host, self.#tunnel != null });
     bun.default_allocator.free(self.#target_host);
     if (self.#websocket_request_buf.len > 0) {
         bun.default_allocator.free(self.#websocket_request_buf);
@@ -66,6 +69,8 @@ pub fn deinit(self: *WebSocketProxy) void {
         tunnel.deref();
     }
 }
+
+const log = bun.Output.scoped(.WebSocketProxy, .visible);
 
 const WebSocketProxyTunnel = @import("./WebSocketProxyTunnel.zig");
 const bun = @import("bun");

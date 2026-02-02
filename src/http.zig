@@ -973,14 +973,14 @@ noinline fn sendInitialRequestPayload(this: *HTTPClient, comptime is_first_call:
 
     const request = this.buildRequest(this.state.original_request_body.len());
 
-    if (this.http_proxy) |_| {
+    if (this.http_proxy) |proxy| {
         if (this.url.isHTTPS()) {
-            log("start proxy tunneling (https proxy)", .{});
+            log("start proxy tunneling (https proxy), url={s}, proxy_href={s}", .{ this.url.href, proxy.href });
             //DO the tunneling!
             this.flags.proxy_tunneling = true;
             try writeProxyConnect(@TypeOf(writer), writer, this);
         } else {
-            log("start proxy request (http proxy)", .{});
+            log("start proxy request (http proxy), url={s}, proxy_href={s}", .{ this.url.href, proxy.href });
             // HTTP do not need tunneling with CONNECT just a slightly different version of the request
             try writeProxyRequest(
                 @TypeOf(writer),

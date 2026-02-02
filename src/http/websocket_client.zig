@@ -1196,6 +1196,7 @@ pub fn NewWebSocketClient(comptime ssl: bool) type {
             deflate_params: ?*const WebSocketDeflate.Params,
             custom_ssl_ctx_ptr: ?*anyopaque,
         ) callconv(.c) ?*anyopaque {
+            log("init: ssl={}, buffered_data_len={d}, has_deflate={}, has_custom_ssl_ctx={}", .{ ssl, buffered_data_len, deflate_params != null, custom_ssl_ctx_ptr != null });
             const tcp = @as(*uws.us_socket_t, @ptrCast(input_socket));
             const ctx = @as(*uws.SocketContext, @ptrCast(socket_ctx));
             var ws = bun.new(WebSocket, .{
@@ -1270,6 +1271,7 @@ pub fn NewWebSocketClient(comptime ssl: bool) type {
             buffered_data_len: usize,
             deflate_params: ?*const WebSocketDeflate.Params,
         ) callconv(.c) ?*anyopaque {
+            log("initWithTunnel: buffered_data_len={d}, has_deflate={}", .{ buffered_data_len, deflate_params != null });
             const tunnel: *WebSocketProxyTunnel = @ptrCast(@alignCast(tunnel_ptr));
 
             var ws = bun.new(WebSocket, .{
@@ -1317,6 +1319,7 @@ pub fn NewWebSocketClient(comptime ssl: bool) type {
         /// Handle data received from the proxy tunnel (already decrypted).
         /// Called by the WebSocketProxyTunnel when it receives and decrypts data.
         pub fn handleTunnelData(this: *WebSocket, data: []const u8) void {
+            log("handleTunnelData: {d} bytes", .{data.len});
             // Process the decrypted data as if it came from the socket
             // hasTCP() now returns true for tunnel mode, so this will work correctly
             this.handleData(this.tcp, data);

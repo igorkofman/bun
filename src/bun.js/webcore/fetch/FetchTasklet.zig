@@ -1037,14 +1037,26 @@ pub const FetchTasklet = struct {
         if (fetch_options.proxy) |proxy_opt| {
             if (!proxy_opt.isEmpty()) { //if is empty just ignore proxy
                 // Check NO_PROXY even for explicitly-provided proxies
-                if (!jsc_vm.transpiler.env.isNoProxy(fetch_options.url.hostname, fetch_options.url.host)) {
+                const is_no_proxy = jsc_vm.transpiler.env.isNoProxy(fetch_options.url.hostname, fetch_options.url.host);
+                log("fetch proxy: explicit proxy provided, hostname={s}, host={s}, isNoProxy={}", .{ fetch_options.url.hostname, fetch_options.url.host, is_no_proxy });
+                if (!is_no_proxy) {
                     proxy = proxy_opt;
+                    log("fetch proxy: using explicit proxy href={s}", .{proxy_opt.href});
+                } else {
+                    log("fetch proxy: explicit proxy bypassed by NO_PROXY", .{});
                 }
+            } else {
+                log("fetch proxy: empty proxy string = explicit direct connection", .{});
             }
             // else: proxy: "" means explicitly no proxy (direct connection)
         } else {
             // no proxy provided, use default proxy resolution
             proxy = jsc_vm.transpiler.env.getHttpProxyFor(fetch_options.url);
+            if (proxy) |p| {
+                log("fetch proxy: env proxy resolved href={s}", .{p.href});
+            } else {
+                log("fetch proxy: no proxy (direct connection)", .{});
+            }
         }
 
         if (fetch_tasklet.check_server_identity.has() and fetch_tasklet.reject_unauthorized) {

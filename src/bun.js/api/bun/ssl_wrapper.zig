@@ -1,4 +1,4 @@
-const log = bun.Output.scoped(.SSLWrapper, .hidden);
+const log = bun.Output.scoped(.SSLWrapper, .visible);
 
 /// Mimics the behavior of openssl.c in uSockets, wrapping data that can be received from any where (network, DuplexStream, etc)
 pub fn SSLWrapper(comptime T: type) type {
@@ -102,12 +102,14 @@ pub fn SSLWrapper(comptime T: type) type {
         }
 
         pub fn start(this: *This) void {
+            log("start: beginning TLS handshake", .{});
             // trigger the onOpen callback so the user can configure the SSL connection before first handshake
             this.handlers.onOpen(this.handlers.ctx);
             // start the handshake
             this.handleTraffic();
         }
         pub fn startWithPayload(this: *This, payload: []const u8) void {
+            log("startWithPayload: {d} bytes, beginning TLS handshake", .{payload.len});
             this.handlers.onOpen(this.handlers.ctx);
             this.receiveData(payload);
             // start the handshake
@@ -127,6 +129,7 @@ pub fn SSLWrapper(comptime T: type) type {
         /// We cannot assume that the read part will remain open after we sent a shutdown, the other side will probably complete the 2-step shutdown ASAP.
         /// Caution: never reuse a socket if fast_shutdown = true, this will also fully close both read and write directions
         pub fn shutdown(this: *This, fast_shutdown: bool) bool {
+            log("shutdown: fast_shutdown={}", .{fast_shutdown});
             const ssl = this.ssl orelse return false;
             // we already sent the ssl shutdown
             if (this.flags.sent_ssl_shutdown or this.flags.fatal_error) return this.flags.received_ssl_shutdown;
@@ -273,6 +276,7 @@ pub fn SSLWrapper(comptime T: type) type {
         }
 
         fn triggerHandshakeCallback(this: *This, success: bool, result: uws.us_bun_verify_error_t) void {
+            log("triggerHandshakeCallback: success={}, error_no={d}", .{ success, result.error_no });
             if (this.flags.closed_notified) return;
 
             this.flags.authorized = success;

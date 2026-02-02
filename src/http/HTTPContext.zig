@@ -448,6 +448,10 @@ pub fn NewHTTPContext(comptime ssl: bool) type {
             else
                 hostname_;
 
+            log("connect: ssl={}, hostname={s}, port={d}, has_proxy={}", .{ ssl, hostname, port, client.http_proxy != null });
+            if (client.http_proxy) |proxy| {
+                log("connect: proxy_href={s}", .{proxy.href});
+            }
             client.connected_url = if (client.http_proxy) |proxy| proxy else client.url;
             client.connected_url.hostname = hostname;
 
@@ -484,7 +488,7 @@ const DeadSocket = struct {
 };
 
 var dead_socket = &DeadSocket.dead_socket;
-const log = bun.Output.scoped(.HTTPContext, .hidden);
+const log = bun.Output.scoped(.HTTPContext, .visible);
 
 const HTTPCertError = @import("./HTTPCertError.zig");
 const HTTPThread = @import("./HTTPThread.zig");

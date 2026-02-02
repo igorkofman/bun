@@ -575,19 +575,27 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
     // Determine connection type based on proxy usage and TLS requirements
     bool hasProxy = proxyConfig.has_value();
 
+    fprintf(stderr, "[WebSocket] connect: url=%s, is_secure=%d, hasProxy=%d\n", m_url.string().utf8().data(), is_secure, hasProxy);
+
     // Check NO_PROXY even for explicitly-provided proxies
     if (hasProxy) {
         auto hostStr = m_url.host().toString();
         auto hostWithPort = hostName(m_url, is_secure);
         auto hostUtf8 = hostStr.utf8();
         auto hostWithPortUtf8 = hostWithPort.utf8();
-        if (Bun__isNoProxy(hostUtf8.data(), hostUtf8.length(), hostWithPortUtf8.data(), hostWithPortUtf8.length())) {
+        bool isNoProxy = Bun__isNoProxy(hostUtf8.data(), hostUtf8.length(), hostWithPortUtf8.data(), hostWithPortUtf8.length());
+        fprintf(stderr, "[WebSocket] NO_PROXY check: host=%s, hostWithPort=%s, isNoProxy=%d\n", hostUtf8.data(), hostWithPortUtf8.data(), isNoProxy);
+        if (isNoProxy) {
             proxyConfig = std::nullopt;
             hasProxy = false;
         }
     }
 
     bool proxyIsHTTPS = hasProxy && proxyConfig->isHTTPS;
+
+    if (hasProxy) {
+        fprintf(stderr, "[WebSocket] using proxy: host=%s, port=%d, isHTTPS=%d\n", proxyConfig->host.utf8().data(), proxyConfig->port, proxyConfig->isHTTPS);
+    }
 
     // Connection type determines what kind of socket we use:
     // - Plain/TLS: direct connection, socket type matches target protocol
@@ -597,6 +605,8 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
     } else {
         m_connectionType = is_secure ? ConnectionType::TLS : ConnectionType::Plain;
     }
+
+    fprintf(stderr, "[WebSocket] connectionType=%d (0=Plain, 1=TLS, 2=ProxyPlain, 3=ProxyTLS)\n", static_cast<int>(m_connectionType));
 
     this->incPendingActivityCount();
 

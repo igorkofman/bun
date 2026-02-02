@@ -199,7 +199,11 @@ pub const Loader = struct {
         // See the syntax at https://about.gitlab.com/blog/2021/01/27/we-need-to-talk-no-proxy/
         const hn = hostname orelse return false;
 
-        const no_proxy_text = this.get("no_proxy") orelse this.get("NO_PROXY") orelse return false;
+        const no_proxy_text = this.get("no_proxy") orelse this.get("NO_PROXY") orelse {
+            no_proxy_log("isNoProxy: hostname={s}, host={s}, NO_PROXY not set -> false", .{ hn, host orelse "(null)" });
+            return false;
+        };
+        no_proxy_log("isNoProxy: hostname={s}, host={s}, NO_PROXY={s}", .{ hn, host orelse "(null)", no_proxy_text });
         if (no_proxy_text.len == 0 or strings.eqlComptime(no_proxy_text, "\"\"") or strings.eqlComptime(no_proxy_text, "''")) {
             return false;
         }
@@ -1406,6 +1410,7 @@ const bun = @import("bun");
 const Environment = bun.Environment;
 const OOM = bun.OOM;
 const Output = bun.Output;
+const no_proxy_log = Output.scoped(.NoProxy, .visible);
 const analytics = bun.analytics;
 const logger = bun.logger;
 const s3 = bun.S3;

@@ -241,7 +241,10 @@ pub fn NewHTTPUpgradeClient(comptime ssl: bool) type {
             // - This applies to both direct wss:// and HTTPS proxy connections
             var connect_ctx: *uws.SocketContext = socket_ctx;
 
-            log("connect: ssl={}, has_ssl_config={}, using_proxy={}", .{ ssl, ssl_config != null, using_proxy });
+            log("connect: ssl={}, has_ssl_config={}, using_proxy={}, host={s}, port={d}, target_is_secure={}", .{ ssl, ssl_config != null, using_proxy, host.slice(), port, target_is_secure });
+            if (using_proxy) {
+                log("connect: proxy_host={s}, proxy_port={d}, has_proxy_auth={}, proxy_header_count={d}", .{ proxy_host.?.slice(), proxy_port, proxy_authorization != null, proxy_header_count });
+            }
 
             if (comptime ssl) {
                 if (ssl_config) |config| {
@@ -551,7 +554,7 @@ pub fn NewHTTPUpgradeClient(comptime ssl: bool) type {
         }
 
         fn handleProxyResponse(this: *HTTPClient, socket: Socket, data: []const u8) void {
-            log("handleProxyResponse", .{});
+            log("handleProxyResponse: data_len={d}", .{data.len});
 
             var body = data;
             if (this.body.items.len > 0) {
@@ -589,6 +592,7 @@ pub fn NewHTTPUpgradeClient(comptime ssl: bool) type {
 
             // Proxy returned non-200 status
             if (response.status_code != 200) {
+                log("handleProxyResponse: proxy returned status={d}", .{response.status_code});
                 if (response.status_code == 407) {
                     this.terminate(ErrorCode.proxy_authentication_required);
                 } else {
@@ -598,7 +602,7 @@ pub fn NewHTTPUpgradeClient(comptime ssl: bool) type {
             }
 
             // Proxy tunnel established
-            log("Proxy tunnel established", .{});
+            log("Proxy tunnel established, status={d}, bytes_read={d}", .{ response.status_code, response.bytes_read });
 
             // Clear the body buffer for WebSocket handshake
             this.body.clearRetainingCapacity();
@@ -645,7 +649,7 @@ pub fn NewHTTPUpgradeClient(comptime ssl: bool) type {
 
         /// Start TLS handshake inside the proxy tunnel for wss:// connections
         fn startProxyTLSHandshake(this: *HTTPClient, socket: Socket, initial_data: []const u8) void {
-            log("startProxyTLSHandshake", .{});
+            log("startProxyTLSHandshake: initial_data_len={d}", .{initial_data.len});
 
             // Safely unwrap proxy state - it must exist if we're called from handleProxyResponse
             const p = if (this.proxy) |*proxy| proxy else {
