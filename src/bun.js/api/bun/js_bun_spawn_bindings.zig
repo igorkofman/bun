@@ -535,18 +535,29 @@ pub fn spawnMaybeSync(
         !bun.feature_flag.BUN_FEATURE_FLAG_DISABLE_SPAWNSYNC_FAST_PATH.get();
 
     // For spawnSync, use an isolated event loop to prevent JavaScript timers from firing
-    // and to avoid interfering with the main event loop
+    // and to avoid interfering with the main event loop.
+    //
+    // However, when the fast path is enabled (no pipes, blocking waitpid), we skip the
+    // vm.event_loop_handle swap. The swap redirects ALL event loop lookups via the VM to
+    // the isolated loop's epoll/kqueue fd. On Linux, during the blocking waitpid, signal
+    // handlers or io_uring completions can fire and use vm.event_loop_handle — if it points
+    // to the isolated loop, their registrations are lost when the isolated loop is discarded,
+    // permanently breaking subsequent networking (e.g., WebSocket connections hang at
+    // readyState=0 forever). The fast path doesn't need the isolated loop since there are
+    // no pipes to tick — it just blocks on waitpid.
+    const needs_event_loop_swap = if (comptime is_sync) !can_block_entire_thread_to_reduce_cpu_usage_in_fast_path else false;
+
     const event_loop: *jsc.EventLoop = if (comptime is_sync)
         &jsc_vm.rareData().spawnSyncEventLoop(jsc_vm).event_loop
     else
         jsc_vm.eventLoop();
 
-    if (comptime is_sync) {
+    if (needs_event_loop_swap) {
         jsc_vm.rareData().spawnSyncEventLoop(jsc_vm).prepare(jsc_vm);
     }
 
     defer {
-        if (comptime is_sync) {
+        if (needs_event_loop_swap) {
             jsc_vm.rareData().spawnSyncEventLoop(jsc_vm).cleanup(jsc_vm, jsc_vm.eventLoop());
         }
     }
