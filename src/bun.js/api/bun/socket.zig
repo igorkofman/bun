@@ -987,14 +987,20 @@ pub fn NewSocket(comptime ssl: bool) type {
                             break :brk rc;
                         }
 
-                        const remaining_in_buffered_data = this.buffered_data_for_node_net.slice()[@min(written, this.buffered_data_for_node_net.len)..];
-                        const remaining_in_input_data = buffer.slice()[@min(this.buffered_data_for_node_net.len -| written, buffer.slice().len)..];
+                        const buffered_len: usize = this.buffered_data_for_node_net.len;
+                        const consumed_from_buffered = @min(written, buffered_len);
+                        const consumed_from_input = written -| buffered_len;
+
+                        const remaining_in_buffered_data = this.buffered_data_for_node_net.slice()[consumed_from_buffered..];
+                        const remaining_in_input_data = buffer.slice()[@min(consumed_from_input, buffer.slice().len)..];
 
                         if (written > 0) {
                             if (remaining_in_buffered_data.len > 0) {
                                 var input_buffer = this.buffered_data_for_node_net.slice();
-                                _ = bun.c.memmove(input_buffer.ptr, input_buffer.ptr[written..], remaining_in_buffered_data.len);
+                                _ = bun.c.memmove(input_buffer.ptr, input_buffer.ptr[consumed_from_buffered..], remaining_in_buffered_data.len);
                                 this.buffered_data_for_node_net.len = @truncate(remaining_in_buffered_data.len);
+                            } else {
+                                this.buffered_data_for_node_net.len = 0;
                             }
                         }
 
